@@ -43,7 +43,11 @@ export default function Workouts() {
   const [logged, setLogged] = useState(null);
   const sub = useSub();
   const [rows, setRows] = useState([]);
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState("");
+
+    useEffect(() => {
+    setDate(new Date().toISOString().slice(0, 10));
+    }, []);
   const [exercise, setExercise] = useState("");
   const [setsText, setSetsText] = useState("");
   const [rpe, setRpe] = useState("");
