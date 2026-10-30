@@ -45,9 +45,9 @@ export default function Workouts() {
   const [rows, setRows] = useState([]);
   const [date, setDate] = useState("");
 
-    useEffect(() => {
+  useEffect(() => {
     setDate(new Date().toISOString().slice(0, 10));
-    }, []);
+  }, []);
   const [exercise, setExercise] = useState("");
   const [setsText, setSetsText] = useState("");
   const [rpe, setRpe] = useState("");
