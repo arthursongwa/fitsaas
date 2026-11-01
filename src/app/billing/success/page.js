@@ -14,7 +14,7 @@ export default function Success() {
         body: JSON.stringify({ sessionId: id }),
       });
       const j = await r.json();
-      if (j.status) window.location = "/dashboard";
+      if (j.status) window.location = "/workouts";
       else setMsg(j.error || "Une erreur est survenue.");
     })();
   }, []);

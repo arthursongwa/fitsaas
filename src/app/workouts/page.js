@@ -1,19 +1,14 @@
 "use client";
 import { useEffect, useState } from "react";
-import Link from "next/link";
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
+import { Trash2, Trophy } from "lucide-react";
+import Shell from "../../../lib/Shell";
 import { supabase } from "../../../lib/supabase";
-import { useSub } from "../../../lib/useSub";
-import Paywall from "../../../lib/Paywall";
+import { e1rm, fmtSets, xpOf } from "../../../lib/stats";
 
-// Réglages de la double progression (comme ton Excel)
 const REP_MIN = 6, REP_MAX = 10, STEP = 2.5;
-const DEFAULTS = [
-  "Développé couché (barre)", "Développé militaire (haltère)", "Extensions triceps poulie",
-  "Tractions lestées", "Tirage vertical", "Presse à cuisses",
-];
+const DEFAULTS = ["Développé couché (barre)", "Développé militaire (haltère)", "Extensions triceps poulie", "Tractions lestées", "Tirage vertical", "Presse à cuisses"];
 
-// "70x8 9 62,5x10" -> [{kg:70,reps:8},{kg:70,reps:9},{kg:62.5,reps:10}]
 function parseSets(text) {
   const out = [];
   let kg = null;
@@ -24,49 +19,32 @@ function parseSets(text) {
   }
   return out.filter((s) => !isNaN(s.kg) && s.reps > 0);
 }
-
-const e1rm = (s) => s.kg * (1 + s.reps / 30); // formule d'Epley
 const best1rm = (sets) => Math.max(...sets.map(e1rm));
-const fmt = (sets) => sets.map((s) => `${s.kg}×${s.reps}`).join(" · ");
 
-// Objectif du jour à partir de la dernière séance
 function target(sets) {
   const top = Math.max(...sets.map((s) => s.kg));
   const topSets = sets.filter((s) => s.kg === top);
-  if (topSets.every((s) => s.reps >= REP_MAX))
-    return `▲ Monte à ${top + STEP} kg, vise ${REP_MIN} reps par série`;
-  const best = Math.max(...topSets.map((s) => s.reps));
-  return `● Reste à ${top} kg, vise ${best + 1} reps`;
+  if (topSets.every((s) => s.reps >= REP_MAX)) return `▲ Monte à ${top + STEP} kg, vise ${REP_MIN} reps par série`;
+  return `● Reste à ${top} kg, vise ${Math.max(...topSets.map((s) => s.reps)) + 1} reps`;
 }
 
-export default function Workouts() {
-  const [logged, setLogged] = useState(null);
-  const sub = useSub();
-  const [rows, setRows] = useState([]);
-  const [date, setDate] = useState("");
+export default function Page() {
+  return <Shell title="Mes séances" subtitle="Journal et surcharge progressive" pro><Content /></Shell>;
+}
 
-  useEffect(() => {
-    setDate(new Date().toISOString().slice(0, 10));
-  }, []);
+function Content() {
+  const [rows, setRows] = useState([]);
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [exercise, setExercise] = useState("");
   const [setsText, setSetsText] = useState("");
   const [rpe, setRpe] = useState("");
+  const [flash, setFlash] = useState("");
 
   async function load() {
-    const { data } = await supabase.from("workouts").select("*").order("date");
+    const { data } = await supabase.from("workouts").select("*").order("date").order("id");
     setRows(data ?? []);
   }
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setLogged(!!data.session);
-      if (data.session) load();
-    });
-  }, []);
-
-  if (logged === null) return null;
-  if (!logged) return <main className="p-4">Connecte-toi d'abord. <Link className="underline" href="/">Accueil</Link></main>;
-  if (sub.loading) return null;
-  if (!sub.active) return <Paywall />;
+  useEffect(() => { load(); }, []);
 
   const names = [...new Set([...DEFAULTS, ...rows.map((r) => r.exercise)])];
   const history = rows.filter((r) => r.exercise.toLowerCase() === exercise.trim().toLowerCase());
@@ -74,75 +52,79 @@ export default function Workouts() {
   const chart = history.map((r) => ({ date: r.date, rm: +best1rm(r.sets).toFixed(1) }));
   const parsed = parseSets(setsText);
 
+  const prs = new Set(), best = {};
+  rows.forEach((r) => {
+    const k = r.exercise.toLowerCase(), b = best1rm(r.sets);
+    if (best[k] !== undefined && b > best[k]) prs.add(r.id);
+    best[k] = Math.max(best[k] ?? 0, b);
+  });
+
   async function add() {
     if (!exercise.trim() || parsed.length === 0) return;
-    await supabase.from("workouts").insert({
-      date, exercise: exercise.trim(), sets: parsed, rpe: rpe ? parseInt(rpe) : null,
-    });
-    setSetsText(""); setRpe("");
-    load();
+    const prev = Math.max(0, ...history.map((r) => best1rm(r.sets)));
+    const isPR = history.length > 0 && best1rm(parsed) > prev;
+    await supabase.from("workouts").insert({ date, exercise: exercise.trim(), sets: parsed, rpe: rpe ? parseInt(rpe) : null });
+    setFlash(`+${xpOf({ sets: parsed })} XP${isPR ? " · Nouveau record 🏆" : ""}`);
+    setSetsText(""); setRpe(""); load();
   }
-
-  async function remove(id) {
-    await supabase.from("workouts").delete().eq("id", id);
-    load();
-  }
+  async function remove(id) { await supabase.from("workouts").delete().eq("id", id); load(); }
 
   return (
-    <main className="min-h-screen bg-gray-50 text-gray-900 p-4 max-w-2xl mx-auto space-y-4">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold">Mes séances</h1>
-        <Link className="text-sm underline" href="/">← Poids</Link>
-      </div>
-
-      <div className="bg-white rounded-xl shadow p-4 space-y-3">
-        <div className="flex gap-2">
-          <input type="date" className="border rounded p-2" value={date} onChange={(e) => setDate(e.target.value)} />
-          <input list="exos" className="border rounded p-2 flex-1" placeholder="Exercice" value={exercise} onChange={(e) => setExercise(e.target.value)} />
+    <>
+      <div className="panel space-y-3 p-5">
+        <div className="flex flex-wrap gap-2">
+          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          <input list="exos" className="flex-1" placeholder="Exercice" value={exercise} onChange={(e) => setExercise(e.target.value)} />
           <datalist id="exos">{names.map((n) => <option key={n} value={n} />)}</datalist>
         </div>
 
         {last && (
-          <div className="text-sm bg-gray-100 rounded p-2">
-            <div>Dernière fois : {fmt(last.sets)}</div>
-            <div className="font-semibold">Objectif du jour : {target(last.sets)}</div>
+          <div className="rounded-xl border border-success/30 bg-success/5 p-3 text-sm">
+            <div className="text-muted-foreground">Dernière fois : {fmtSets(last.sets)}</div>
+            <div className="mt-1 font-semibold text-success">Objectif du jour : {target(last.sets)}</div>
           </div>
         )}
 
-        <input className="w-full border rounded p-2" placeholder="Séries : 70x8 9 9  (puis 62,5x10 pour changer de charge)" value={setsText} onChange={(e) => setSetsText(e.target.value)} />
-        {parsed.length > 0 && <div className="text-xs text-gray-500">Compris : {fmt(parsed)}</div>}
+        <input className="w-full" placeholder="Séries : 70x8 9 9  (puis 62,5x10 pour changer de charge)" value={setsText} onChange={(e) => setSetsText(e.target.value)} />
+        {parsed.length > 0 && <div className="text-xs text-muted-foreground">Compris : {fmtSets(parsed)}</div>}
 
         <div className="flex gap-2">
-          <input className="border rounded p-2 w-24" placeholder="RPE" value={rpe} onChange={(e) => setRpe(e.target.value)} />
-          <button className="bg-black text-white rounded px-4 flex-1" onClick={add}>Enregistrer</button>
+          <input className="w-24" placeholder="RPE" value={rpe} onChange={(e) => setRpe(e.target.value)} />
+          <button className="flex-1 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-glow-success hover:brightness-110" onClick={add}>Enregistrer</button>
         </div>
+        {flash && <p className="text-sm font-medium text-streak">{flash}</p>}
       </div>
 
       {chart.length > 1 && (
-        <div className="bg-white rounded-xl shadow p-4 h-60">
-          <div className="text-sm text-gray-500 mb-1">1RM estimé (kg)</div>
-          <ResponsiveContainer width="100%" height="90%">
+        <div className="panel h-64 p-4">
+          <p className="mb-1 text-sm text-muted-foreground">1RM estimé (kg)</p>
+          <ResponsiveContainer width="100%" height="88%">
             <LineChart data={chart}>
-              <XAxis dataKey="date" fontSize={11} />
-              <YAxis domain={["dataMin - 2", "dataMax + 2"]} fontSize={11} />
-              <Tooltip />
-              <Line type="monotone" dataKey="rm" stroke="#111" strokeWidth={2} />
+              <CartesianGrid stroke="#232b3d" vertical={false} />
+              <XAxis dataKey="date" stroke="#8b95a9" fontSize={11} />
+              <YAxis domain={["dataMin - 2", "dataMax + 2"]} stroke="#8b95a9" fontSize={11} />
+              <Tooltip contentStyle={{ background: "#111622", border: "1px solid #232b3d", borderRadius: 8 }} />
+              <Line type="monotone" dataKey="rm" stroke="#34d399" strokeWidth={2.5} />
             </LineChart>
           </ResponsiveContainer>
         </div>
       )}
 
-      <div className="bg-white rounded-xl shadow divide-y">
+      <div className="panel divide-y divide-border">
+        {rows.length === 0 && <p className="p-4 text-sm text-muted-foreground">Aucune séance. Enregistre ta première ci-dessus.</p>}
         {[...rows].reverse().map((r) => (
-          <div key={r.id} className="p-3 flex justify-between gap-2 text-sm">
-            <div>
-              <div className="font-semibold">{r.exercise}</div>
-              <div className="text-gray-500">{r.date} · {fmt(r.sets)}{r.rpe ? ` · RPE ${r.rpe}` : ""}</div>
+          <div key={r.id} className="flex items-center justify-between gap-3 p-3 text-sm">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 font-semibold">
+                {r.exercise}
+                {prs.has(r.id) && <Trophy className="h-4 w-4 text-streak" />}
+              </div>
+              <div className="truncate text-muted-foreground">{r.date} · {fmtSets(r.sets)}{r.rpe ? ` · RPE ${r.rpe}` : ""}</div>
             </div>
-            <button className="text-red-600" onClick={() => remove(r.id)}>✕</button>
+            <button className="text-muted-foreground hover:text-streak" onClick={() => remove(r.id)} aria-label="Supprimer"><Trash2 className="h-4 w-4" /></button>
           </div>
         ))}
       </div>
-    </main>
+    </>
   );
 }
