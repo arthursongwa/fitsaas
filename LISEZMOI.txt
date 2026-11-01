@@ -1,0 +1,20 @@
+FITSAAS P0 : installation (10 minutes)
+
+1. Dézippe CE DOSSIER DANS LA RACINE de ton projet (là où se trouve package.json)
+   et accepte de remplacer les fichiers existants.
+2. Supprime les anciens dossiers devenus inutiles :
+   src/app/dashboard   src/app/weight   src/app/billing/sucess
+3. Terminal, dans le projet :  npm install
+   puis : npm install lucide-react recharts stripe @supabase/supabase-js xlsx
+4. Supabase > SQL Editor > New query : colle tout supabase/p0.sql > Run.
+   PUIS colle supabase/p1_excel.sql > Run (fonctions de ton Excel).
+5. Variables d'environnement (.env.local et Vercel), toutes déjà créées sauf STRIPE_WEBHOOK_SECRET (en prod) :
+   NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY,
+   STRIPE_SECRET_KEY, STRIPE_PRICE_ID, STRIPE_WEBHOOK_SECRET
+6. Supabase > Authentication > URL Configuration > Redirect URLs : ajoute
+   http://localhost:3000/**   et   https://TON-SITE.vercel.app/**
+7. Stripe (mode test) > Paramètres > Billing > Portail client > Activer.
+8. Tests du moteur de calcul :  node --test
+9. Lancement :  npm run dev   puis http://localhost:3000
+
+IMPORTER TON EXCEL : Séances > Importer Excel (ton fichier Surcharge progressive .xlsx). Il faut un abonnement actif (essai gratuit OK).

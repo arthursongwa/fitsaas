@@ -1,12 +1,8 @@
-import { admin, userFrom, subRow } from "../../../../lib/server";
-import Stripe from "stripe";
+import { stripe, admin, userFrom, subRow } from "../../../../lib/server";
 
+// Appelée au retour de Stripe : le statut est lu chez Stripe (pas fourni par le navigateur).
 export async function POST(req) {
   try {
-    // Initialisation ici pour éviter l'erreur au build
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-    
-    // ... le reste de ton code existant pour la route checkout
     const user = await userFrom(req);
     if (!user) return Response.json({ error: "Non connecté." }, { status: 401 });
     const { sessionId } = await req.json();
@@ -15,5 +11,7 @@ export async function POST(req) {
     const { error } = await admin().from("subscriptions").upsert(subRow(user.id, session.subscription));
     if (error) throw error;
     return Response.json({ status: session.subscription.status });
-  } catch (e) { return Response.json({ error: e.message }, { status: 500 }); }
+  } catch (e) {
+    return Response.json({ error: e.message }, { status: 500 });
+  }
 }

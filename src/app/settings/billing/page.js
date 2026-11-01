@@ -4,12 +4,22 @@ import Shell from "../../../../lib/Shell";
 import { useSub } from "../../../../lib/useSub";
 import { api } from "../../../../lib/api";
 import { Err, btn, btn2 } from "../../../../lib/ui";
-export default function Page() { return <Shell title="Abonnement" subtitle="FitSaaS Pro"><Content /></Shell>; }
+
+export default function Page() {
+  return <Shell title="Abonnement" subtitle="FitSaaS Pro"><Content /></Shell>;
+}
+
 const LABEL = { active: "Actif", trialing: "Essai gratuit en cours", past_due: "Paiement en retard", canceled: "Résilié", unpaid: "Impayé", incomplete: "Paiement incomplet", incomplete_expired: "Expiré", paused: "En pause" };
+
 function Content() {
-  const sub = useSub(); const [err, setErr] = useState("");
+  const sub = useSub();
+  const [err, setErr] = useState("");
   if (sub.loading) return null;
-  async function go(path) { setErr(""); const j = await api(path); if (j.url) window.location = j.url; else setErr(j.error || "Une erreur est survenue."); }
+  async function go(path) {
+    setErr("");
+    const j = await api(path);
+    if (j.url) window.location = j.url; else setErr(j.error || "Une erreur est survenue.");
+  }
   const date = sub.periodEnd ? new Date(sub.periodEnd).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" }) : null;
   return (
     <section className="panel max-w-xl space-y-4 p-6">
@@ -22,5 +32,6 @@ function Content() {
       </div>
       <p className="text-xs text-muted-foreground">Le portail Stripe permet de changer de carte, télécharger les factures et résilier. Le statut est vérifié côté serveur à chaque écriture.</p>
       <Err>{err}</Err>
-    </section>);
+    </section>
+  );
 }

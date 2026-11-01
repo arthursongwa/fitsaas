@@ -1,62 +1,35 @@
-import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-import Stripe from "stripe";
+import { stripe, admin, subRow } from "../../../../lib/server";
 
+// Webhook Stripe : signature vérifiée, traitement idempotent (un même événement n'est jamais appliqué deux fois),
+// état relu chez Stripe pour éviter les problèmes d'ordre d'arrivée des événements.
 export async function POST(req) {
   const body = await req.text();
-  const signature = req.headers.get("stripe-signature");
-
-  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-  const db = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-  );
-
   let event;
   try {
-    event = stripe.webhooks.constructEvent(
-      body,
-      signature,
-      process.env.STRIPE_WEBHOOK_SECRET
-    );
-  } catch (err) {
-    return new Response(`Webhook Error: ${err.message}`, { status: 400 });
+    event = stripe().webhooks.constructEvent(body, req.headers.get("stripe-signature"), process.env.STRIPE_WEBHOOK_SECRET);
+  } catch {
+    return new Response("Signature invalide", { status: 400 });
   }
+  if (!event.type.startsWith("customer.subscription.")) return new Response("ignoré");
 
-  // Vérification d'idempotence
-  const { data: existing } = await db
-    .from("stripe_events")
-    .select("id")
-    .eq("id", event.id)
-    .single();
-
-  if (existing) {
-    return new Response(JSON.stringify({ received: true }), { status: 200 });
-  }
-
-  await db.from("stripe_events").insert({ id: event.id });
+  const db = admin();
+  const { error: dup } = await db.from("stripe_events").insert({ id: event.id });
+  if (dup) return dup.code === "23505" ? new Response("déjà traité") : new Response("erreur", { status: 500 });
 
   try {
-    if (event.type === "checkout.session.completed") {
-      const session = event.data.object;
-      const userId = session.metadata?.user_id;
-      if (userId) {
-        await db
-          .from("profiles")
-          .update({ is_pro: true, stripe_customer_id: session.customer })
-          .eq("id", userId);
-      }
-    } else if (event.type === "customer.subscription.deleted") {
-      const subscription = event.data.object;
-      await db
-        .from("profiles")
-        .update({ is_pro: false })
-        .eq("stripe_customer_id", subscription.customer);
+    const s = await stripe().subscriptions.retrieve(event.data.object.id);
+    let userId = s.metadata?.user_id;
+    if (!userId) {
+      const { data } = await db.from("subscriptions").select("user_id").eq("stripe_customer_id", s.customer).maybeSingle();
+      userId = data?.user_id;
     }
-
-    return new Response(JSON.stringify({ received: true }), { status: 200 });
-  } catch (err) {
-    await db.from("stripe_events").delete().eq("id", event.id);
-    return new Response(JSON.stringify({ error: err.message }), { status: 500 });
+    if (userId) {
+      const { error } = await db.from("subscriptions").upsert(subRow(userId, s));
+      if (error && error.code !== "23503") throw error; // 23503 : compte déjà supprimé, rien à faire
+    }
+    return new Response("ok");
+  } catch {
+    await db.from("stripe_events").delete().eq("id", event.id); // permet à Stripe de réessayer
+    return new Response("erreur", { status: 500 });
   }
 }

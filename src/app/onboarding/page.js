@@ -7,7 +7,9 @@ import { Field, Choice, Err, Bar, btn, btn2 } from "../../../lib/ui";
 import { ACTIVITY, OBJECTIVES, parseNum, isValidWeightKg, targets, ageFrom, isoDay } from "../../../lib/calc";
 import { generateProgram } from "../../../lib/exercises";
 
-export default function Page() { return <Shell title="Bienvenue" subtitle="Quelques questions pour personnaliser ton plan" bare><Content /></Shell>; }
+export default function Page() {
+  return <Shell title="Bienvenue" subtitle="Quelques questions pour personnaliser ton plan" bare><Content /></Shell>;
+}
 
 const DEF = { name: "", sex: "h", birth_year: "", height_cm: "", weight: "", objective: "perte", goal_weight: "", activity: "modere", diet_prefs: "", allergies: "", meals_per_day: 3, experience: "debutant", training_days: 3, session_minutes: 60, place: "salle" };
 
@@ -89,7 +91,9 @@ function Content() {
             <Field label="Poids cible (kg)"><input className="w-full" inputMode="decimal" {...inp("goal_weight")} /></Field>
           </div>
           <Field label="Objectif"><Choice value={f.objective} onChange={set("objective")} options={Object.entries(OBJECTIVES)} /></Field>
-          <Field label="Niveau d'activité au quotidien"><select className="w-full" {...inp("activity")}>{Object.entries(ACTIVITY).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}</select></Field>
+          <Field label="Niveau d'activité au quotidien">
+            <select className="w-full" {...inp("activity")}>{Object.entries(ACTIVITY).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}</select>
+          </Field>
         </>)}
         {step === 2 && (<>
           <h2 className="text-lg font-semibold">Alimentation</h2>
@@ -117,8 +121,10 @@ function Content() {
             <div className="mt-1 text-sm text-muted-foreground">Protéines {plan.protein} g · Glucides {plan.carbs} g · Lipides {plan.fat} g</div>
             {plan.floorApplied && <p className="mt-2 text-xs text-streak">Ton objectif a été relevé à un minimum de sécurité.</p>}
           </div>
-          <div><div className="mb-2 text-sm font-medium">Programme proposé ({program.length} séances par semaine)</div>
-            <ul className="space-y-1 text-sm text-muted-foreground">{program.map((d) => <li key={d.name}><span className="text-foreground">{d.name}</span> : {d.exercises.length} exercices</li>)}</ul></div>
+          <div>
+            <div className="mb-2 text-sm font-medium">Programme proposé ({program.length} séances par semaine)</div>
+            <ul className="space-y-1 text-sm text-muted-foreground">{program.map((d) => <li key={d.name}><span className="text-foreground">{d.name}</span> : {d.exercises.length} exercices</li>)}</ul>
+          </div>
         </>) : <p className="text-sm text-streak">Impossible de calculer le plan avec ces informations. Reviens en arrière.</p>)}
         <Err>{err}</Err>
         <div className="flex justify-between gap-3 pt-2">
