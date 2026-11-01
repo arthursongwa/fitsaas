@@ -1,58 +1,37 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import Link from "next/link";
 import Shell from "../../../lib/Shell";
+import { supabase } from "../../../lib/supabase";
+import { api } from "../../../lib/api";
 import { useProfile } from "../../../lib/useProfile";
-
-const OBJ = [["perte", "Perdre du poids"], ["muscle", "Prendre du muscle"], ["maintien", "Maintien"]];
-
-export default function Page() {
-  return <Shell title="Réglages" subtitle="Ton profil et tes objectifs"><Content /></Shell>;
-}
-
+import { Field, Choice, Err, Ok, btn, btn2, btnWarn, download } from "../../../lib/ui";
+export default function Page() { return <Shell title="Réglages" subtitle="Préférences, sécurité et données"><Content /></Shell>; }
 function Content() {
   const { profile, loading, save } = useProfile();
-  const [f, setF] = useState({ name: "", objective: "perte", goal_weight: 75, weekly_goal: 3 });
-  const [msg, setMsg] = useState("");
-  useEffect(() => { if (!loading) setF((x) => ({ ...x, ...profile })); }, [loading]);
+  const [pw, setPw] = useState(""); const [confirmText, setConfirmText] = useState(""); const [msg, setMsg] = useState({ err: "", ok: "" });
   if (loading) return null;
-
-  async function onSave() {
-    const err = await save({
-      name: f.name, objective: f.objective,
-      goal_weight: parseFloat(String(f.goal_weight).replace(",", ".")) || 75,
-      weekly_goal: parseInt(f.weekly_goal) || 3,
-    });
-    setMsg(err ? err.message : "Enregistré ✓");
+  const note = (err, ok) => setMsg({ err: err || "", ok: ok || "" });
+  async function setUnit(u) { const er = await save({ unit: u }); note(er?.message, er ? "" : "Unité enregistrée."); }
+  async function changePw() { if (pw.length < 8) return note("Au moins 8 caractères."); const { error } = await supabase.auth.updateUser({ password: pw }); if (error) return note(error.message); setPw(""); note("", "Mot de passe modifié."); }
+  async function exportAll() {
+    const out = {};
+    for (const t of ["profiles", "weights", "workouts", "food_entries", "programs"]) { const { data, error } = await supabase.from(t).select("*"); if (error) return note(`Export impossible (${t}) : ${error.message}`); out[t] = data; }
+    download(JSON.stringify(out, null, 2), "fitsaas-export.json", "application/json"); note("", "Export téléchargé.");
   }
-
+  async function del() {
+    if (confirmText !== "SUPPRIMER") return note("Tape SUPPRIMER pour confirmer.");
+    const j = await api("/api/account", "DELETE");
+    if (j.error) return note(j.error);
+    await supabase.auth.signOut(); window.location.href = "/login";
+  }
   return (
-    <div className="panel max-w-lg space-y-5 p-6">
-      <label className="block space-y-1 text-sm">
-        <span className="text-muted-foreground">Prénom</span>
-        <input className="w-full" value={f.name ?? ""} onChange={(e) => setF({ ...f, name: e.target.value })} />
-      </label>
-      <div className="space-y-2 text-sm">
-        <span className="text-muted-foreground">Objectif</span>
-        <div className="grid grid-cols-3 gap-2">
-          {OBJ.map(([k, l]) => (
-            <button key={k} onClick={() => setF({ ...f, objective: k })} className={`rounded-lg border p-2 text-xs ${f.objective === k ? "border-success bg-success/10 text-success" : "border-border hover:bg-accent"}`}>{l}</button>
-          ))}
-        </div>
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <label className="block space-y-1 text-sm">
-          <span className="text-muted-foreground">Poids cible (kg)</span>
-          <input className="w-full" value={f.goal_weight ?? ""} onChange={(e) => setF({ ...f, goal_weight: e.target.value })} />
-        </label>
-        <label className="block space-y-1 text-sm">
-          <span className="text-muted-foreground">Séances par semaine</span>
-          <input className="w-full" value={f.weekly_goal ?? ""} onChange={(e) => setF({ ...f, weekly_goal: e.target.value })} />
-        </label>
-      </div>
-      <div className="flex items-center gap-3">
-        <button className="rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground shadow-glow-success hover:brightness-110" onClick={onSave}>Enregistrer</button>
-        {msg && <span className="text-sm text-muted-foreground">{msg}</span>}
-      </div>
-    </div>
-  );
+    <div className="max-w-xl space-y-5">
+      <Err>{msg.err}</Err><Ok>{msg.ok}</Ok>
+      <section className="panel space-y-3 p-6"><h2 className="font-semibold">Préférences</h2><Field label="Unité de poids"><Choice cols={2} value={profile.unit || "kg"} onChange={setUnit} options={[["kg", "Kilogrammes"], ["lb", "Livres"]]} /></Field><p className="text-xs text-muted-foreground">Tes pesées sont toujours conservées en kg ; seul l'affichage change.</p></section>
+      <section className="panel space-y-3 p-6"><h2 className="font-semibold">Abonnement</h2><Link href="/settings/billing" className={btn2}>Gérer mon abonnement</Link></section>
+      <section className="panel space-y-3 p-6"><h2 className="font-semibold">Sécurité</h2><Field label="Nouveau mot de passe"><input className="w-full" type="password" autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} /></Field><div className="flex gap-3"><button className={btn} onClick={changePw}>Modifier</button><button className={btn2} onClick={() => supabase.auth.signOut()}>Se déconnecter</button></div></section>
+      <section className="panel space-y-3 p-6"><h2 className="font-semibold">Mes données</h2><p className="text-sm text-muted-foreground">Télécharge toutes tes données (profil, pesées, séances, journal, programme) au format JSON.</p><button className={btn2} onClick={exportAll}>Exporter mes données</button><p className="text-xs text-muted-foreground">Voir aussi les <Link className="underline" href="/legal">informations légales</Link>.</p></section>
+      <section className="panel space-y-3 border-streak/40 p-6"><h2 className="font-semibold text-streak">Supprimer mon compte</h2><p className="text-sm text-muted-foreground">Action définitive : ton abonnement est résilié et toutes tes données sont supprimées.</p><input className="w-full" placeholder="Tape SUPPRIMER" value={confirmText} onChange={(e) => setConfirmText(e.target.value)} /><button className={btnWarn} onClick={del}>Supprimer définitivement mon compte</button></section>
+    </div>);
 }

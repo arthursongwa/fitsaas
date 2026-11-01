@@ -1,53 +1,22 @@
 @import "tailwindcss";
-
 @theme {
-  --color-background: #0a0d14;
-  --color-foreground: #e8ecf4;
-  --color-card: #111622;
-  --color-muted: #1a2030;
-  --color-muted-foreground: #8b95a9;
-  --color-border: #232b3d;
-  --color-accent: #1b2234;
-  --color-sidebar: #0d111a;
-  --color-primary: #34d399;
-  --color-primary-foreground: #04130d;
-  --color-success: #34d399;
-  --color-streak: #fb923c;
-  --color-info: #60a5fa;
-  --shadow-glow-success: 0 0 24px -6px rgb(52 211 153 / 0.45);
-  --shadow-glow-streak: 0 0 24px -6px rgb(251 146 60 / 0.45);
-  --shadow-glow-info: 0 0 24px -6px rgb(96 165 250 / 0.45);
+  --color-background: #0a0d14; --color-foreground: #e8ecf4; --color-card: #111622; --color-muted: #1a2030;
+  --color-muted-foreground: #8b95a9; --color-border: #232b3d; --color-accent: #1b2234; --color-sidebar: #0d111a;
+  --color-primary: #34d399; --color-primary-foreground: #04130d; --color-success: #34d399; --color-streak: #fb923c; --color-info: #60a5fa;
+  --shadow-glow-success: 0 0 24px -6px rgb(52 211 153 / 0.45); --shadow-glow-streak: 0 0 24px -6px rgb(251 146 60 / 0.45); --shadow-glow-info: 0 0 24px -6px rgb(96 165 250 / 0.45);
   --animate-flame: flame 1.6s ease-in-out infinite;
-  @keyframes flame {
-    0%, 100% { transform: scale(1) rotate(-2deg); }
-    50% { transform: scale(1.12) rotate(2deg); }
-  }
+  @keyframes flame { 0%, 100% { transform: scale(1) rotate(-2deg); } 50% { transform: scale(1.12) rotate(2deg); } }
 }
-
 @utility bg-gradient-success { background-image: linear-gradient(135deg, #34d399, #10b981); }
 @utility bg-gradient-streak { background-image: linear-gradient(135deg, #fb923c, #f97316); }
-@utility panel {
-  background: var(--color-card);
-  border: 1px solid var(--color-border);
-  border-radius: 1rem;
-}
-
+@utility panel { background: var(--color-card); border: 1px solid var(--color-border); border-radius: 1rem; }
 @layer base {
   html { color-scheme: dark; }
-  body {
-    background: var(--color-background);
-    color: var(--color-foreground);
-    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-  }
-  input, select {
-    background: var(--color-muted);
-    border: 1px solid var(--color-border);
-    border-radius: 0.5rem;
-    padding: 0.5rem 0.75rem;
-    color: inherit;
-    outline: none;
-    min-width: 0;
-  }
-  input:focus, select:focus { border-color: var(--color-success); }
+  body { background: var(--color-background); color: var(--color-foreground); font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+  input, select, textarea { background: var(--color-muted); border: 1px solid var(--color-border); border-radius: 0.5rem; padding: 0.5rem 0.75rem; color: inherit; outline: none; min-width: 0; }
+  input[type="checkbox"] { padding: 0; }
+  input:focus, select:focus, textarea:focus { border-color: var(--color-success); }
   input::placeholder { color: var(--color-muted-foreground); }
+  button:focus-visible, a:focus-visible { outline: 2px solid var(--color-success); outline-offset: 2px; }
+  button:disabled { opacity: 0.6; cursor: not-allowed; }
 }
