@@ -14,8 +14,16 @@ const toneCls = {
   info: "text-info bg-info/10 border-info/40 shadow-glow-info",
 };
 
+"use client"; // Assure-toi que le composant est bien un Client Component si ce n'était pas déjà le cas
+import { useState, useEffect } from "react";
+
 export default function Page() {
-  const today = new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
+  const [today, setToday] = useState("");
+
+  useEffect(() => {
+    setToday(new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" }));
+  }, []);
+
   return (
     <Shell
       title="Bon retour 👋"
